@@ -1,0 +1,8 @@
+englishcard_bot/
+├── config.py          # Конфигурация и настройки
+├── database.py        # Функции для работы с БД
+├── bot_handlers.py    # Обработчики команд бота
+├── main.py            # Главный файл для запуска бота
+├── create_tables.sql  # SQL-скрипт создания таблиц
+├── initial_data.sql   # SQL-скрипт заполнения初始ных данных
+└── requirements.txt   # Зависимости
