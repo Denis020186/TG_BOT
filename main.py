@@ -8,6 +8,7 @@ if sys.platform == "win32":
 import telebot
 from config import BOT_TOKEN
 import bot_handlers as handlers
+from database import PostgreSQLDatabase as database
 
 # Создание экземпляра бота
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -26,13 +27,13 @@ def handle_study(message):
     handlers.start_study(message)
 
 
-@bot.message_handler(commands=['add_word', 'добавить', 'новоеслово'])
+@bot.message_handler(commands=['add_word', 'добавить', 'новое слово'])
 def handle_add_word(message):
     print(f"Команда /add_word от пользователя {message.from_user.id}")
     handlers.add_word_step_1(message)
 
 
-@bot.message_handler(commands=['delete_word', 'удалить', 'удалитьслово'])
+@bot.message_handler(commands=['delete_word', 'удалить', 'удалить слово'])
 def handle_delete_word(message):
     print(f"Команда /delete_word от пользователя {message.from_user.id}")
     handlers.delete_word_list(message)
@@ -74,9 +75,28 @@ def handle_unknown(message):
         bot.reply_to(message, "Неизвестная команда. Используйте /start для просмотра доступных команд.")
 
 
+def initialize_database():
+    # Инициализирует базу данных при запуске бота
+    print("🔄 Проверка и инициализация базы данных...")
+    try:
+        database.check_and_init_database()
+        print("✅ База данных готова к работе!")
+        return True
+    except Exception as e:
+        print(f"❌ Ошибка при инициализации базы данных: {e}")
+        return False
+
 # Запуск бота
 if __name__ == '__main__':
     print("=" * 50)
+    print("Запуск English Learning Bot...")
+    print("=" * 50)
+
+    # Инициализация базы данных
+    if not initialize_database():
+        print("❌ Не удалось инициализировать базу данных. Завершение работы.")
+        sys.exit(1)
+
     print("Бот запущен и готов к работе!")
     print("Ожидание сообщений...")
     print("=" * 50)

@@ -1,49 +1,22 @@
-import random
 import time
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-import database
 
-# Глобальная переменная для хранения состояния пользователей
-user_states = {}
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from database import PostgreSQLDatabase as database
 
 
 def get_user_state(user_id):
     """Возвращает состояние пользователя"""
-    return user_states.get(user_id, {})
+    return database.get_user_state(user_id)
 
 
 def set_user_state(user_id, state_data):
-    """Устанавливает состояние пользователя"""
-    user_states[user_id] = state_data
+    """Устанавливает состояние пользователя в БД"""
+    return database.set_user_state(user_id, state_data)
 
 
 def clear_user_state(user_id):
-    """Очищает состояние пользователя"""
-    if user_id in user_states:
-        del user_states[user_id]
-
-
-def get_random_word_and_options(user_id):
-    """Возвращает случайное слово для проверки и 4 варианта ответа."""
-    user_words = database.get_user_words(user_id)
-    print(f"📚 Найдено слов для пользователя {user_id}: {len(user_words)}")
-
-    if not user_words:
-        return None, [], []
-
-    target_word = random.choice(user_words)
-    target_id, en, ru = target_word
-    print(f"🎯 Выбрано слово: {ru} -> {en}")
-
-    other_words = [word for word in user_words if word[0] != target_id]
-    wrong_options = random.sample(other_words, min(3, len(other_words)))
-    wrong_answers = [word[1] for word in wrong_options]
-
-    options = [en] + wrong_answers
-    random.shuffle(options)
-    print(f"📝 Варианты ответов: {options}")
-
-    return (ru, options, en)
+    """Очищает состояние пользователя в БД"""
+    return database.clear_user_state(user_id)
 
 
 def send_welcome(message):
@@ -53,10 +26,7 @@ def send_welcome(message):
     username = message.from_user.username
     first_name = message.from_user.first_name
 
-    print(f"👋 Приветствие для пользователя {user_id}")
     database.register_user(user_id, username, first_name)
-
-    # Очищаем состояние при старте
     clear_user_state(user_id)
 
     welcome_text = """🎓 <b>Привет! Я бот для изучения английских слов!</b>
@@ -77,12 +47,11 @@ def start_study(message):
     """Начинает урок с выбором слова."""
     from main import bot
     user_id = message.from_user.id
-    print(f"🎓 Начало изучения для пользователя {user_id}")
 
     # Очищаем предыдущее состояние
     clear_user_state(user_id)
 
-    question, options, correct_answer = get_random_word_and_options(user_id)
+    question, options, correct_answer = database.get_random_word_and_options(user_id)
 
     if not question:
         bot.send_message(message.chat.id,
@@ -91,7 +60,7 @@ def start_study(message):
                          parse_mode='HTML')
         return
 
-    # Сохраняем состояние изучения
+    # Сохраняем состояние изучения в БД
     set_user_state(user_id, {
         'mode': 'study',
         'correct_answer': correct_answer,
@@ -124,8 +93,6 @@ def handle_text_message(message):
 
     user_state = get_user_state(user_id)
     current_mode = user_state.get('mode', '')
-
-    print(f"💬 Сообщение от {user_id}: '{text}' (режим: {current_mode})")
 
     # Обработка команды отмены
     if text.lower() in ['отмена', 'отменить', 'cancel', '❌ отменить изучение']:
@@ -195,7 +162,6 @@ def add_word_step_1(message):
     """Начинает процесс добавления слова."""
     from main import bot
     user_id = message.from_user.id
-    print(f"➕ Добавление слова для пользователя {user_id}")
 
     # Устанавливаем состояние
     set_user_state(user_id, {'mode': 'add_word_step1'})
@@ -253,8 +219,6 @@ def handle_add_word_step2(message):
                          parse_mode='HTML')
         clear_user_state(user_id)
         return
-
-    print(f"💾 Сохранение слова: {english_word} -> {russian_translation} для пользователя {user_id}")
 
     # Сохраняем слово в базу
     success = database.add_word_to_db(user_id, english_word, russian_translation)
@@ -345,15 +309,3 @@ def show_stats(message):
                          "Начните изучение: /study",
                          parse_mode='HTML')
 
-
-def cancel_operation(message):
-    """Универсальная функция отмены."""
-    from main import bot
-    user_id = message.from_user.id
-
-    clear_user_state(user_id)
-
-    bot.send_message(message.chat.id,
-                     "✅ <b>Операция отменена.</b>\n"
-                     "Используйте /start для просмотра команд.",
-                     parse_mode='HTML')
